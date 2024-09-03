@@ -1,0 +1,92 @@
+package main
+
+import (
+	"database/sql"
+	"{{.Project_name}}/internal/model"
+	"flag"
+	"html/template"
+	"log"
+	"net/http"
+	"os"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
+)
+
+type config struct {
+	addr      string
+	staticDir string
+	dsn       string
+}
+
+type application struct {
+	infoLog       *log.Logger
+	errorLog      *log.Logger
+	config        *config
+	models        model.Models
+	templateCache map[string]*template.Template
+}
+
+func main() {
+
+	infoLog := log.New(os.Stdout, "INFO\t", log.Llongfile|log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Llongfile|log.Ldate|log.Ltime)
+
+	err := godotenv.Load()
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
+	conf := parseConfig()
+
+	db, err := openDB(conf.dsn)
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+	defer db.Close()
+
+	tc, err := NewTemplateCache()
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
+	app := application{
+		infoLog:       infoLog,
+		errorLog:      errorLog,
+		config:        conf,
+		models:        model.NewModels(db),
+		templateCache: tc,
+	}
+
+	srv := http.Server{
+		Addr:     conf.addr,
+		ErrorLog: app.errorLog,
+		Handler:  app.route(),
+	}
+
+	app.infoLog.Printf("Server listeing on %s\n", conf.addr)
+	err = srv.ListenAndServe()
+	errorLog.Fatal(err)
+}
+
+func parseConfig() *config {
+
+	var conf = &config{}
+	flag.StringVar(&conf.addr, "addr", ":4000", "Http address for server to listen")
+	flag.StringVar(&conf.staticDir, "static-dir", "./ui/static/", "Directory where static files are stored")
+	flag.StringVar(&conf.dsn, "dsn", os.Getenv("DSN"), "Postgres data source name")
+	flag.Parse()
+	return conf
+}
+
+func openDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
