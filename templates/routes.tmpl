@@ -10,7 +10,7 @@ func (app *application) route() http.Handler {
 	r := httprouter.New()
 
 	fileServer := http.FileServer(http.Dir(app.config.staticDir))
-	r.Handler(http.MethodGet, "/static/", http.StripPrefix("/static", fileServer))
+	r.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static/", fileServer))
 	r.Handler(http.MethodGet, "/", app.servePage("index.html"))
 	return secureHeaders(app.logRequest(r))
 }

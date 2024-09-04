@@ -81,6 +81,22 @@ func executeCommand(command string) error {
 	return nil
 }
 
+func (app *application) loadTemplate(filename string) string {
+	ts, err := template.ParseFS(templates, fmt.Sprintf("templates/%s", filename))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var b strings.Builder
+
+	err = ts.Execute(&b, app.cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return b.String()
+}
+
 func (app *application) makeFile(filename string) {
 	templateName := filepath.Base(filename)
 	templateName = strings.Split(templateName, ".")[0] + ".tmpl"
@@ -128,22 +144,6 @@ func makeDir(path string) {
 	}
 }
 
-func (app *application) loadTemplate(filename string) string {
-	ts, err := template.ParseFS(templates, fmt.Sprintf("templates/%s", filename))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var b strings.Builder
-
-	err = ts.Execute(&b, app.cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return b.String()
-}
-
 func (app *application) run() {
 	app.makeFile("cmd/web/main.go")
 	app.makeFile("cmd/web/routes.go")
@@ -158,9 +158,9 @@ func (app *application) run() {
 	app.makeHiddenFile(".env")
 
 	makeDir("db/migrations")
-	makeDir("static/css")
-	makeDir("static/js")
-	makeDir("static/img")
+	makeDir("ui/static/styles")
+	makeDir("ui/static/scripts")
+	makeDir("ui/static/assets")
 
 	executeCommand(fmt.Sprintf("go mod init %s && go mod tidy", app.cfg.Project_name))
 }
